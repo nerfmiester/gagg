@@ -11,16 +11,15 @@ import (
 	"flag"
 	"os"
 
+	"net/http"
+	"io/ioutil"
 )
 var tomlConfig Config.TomlConfig
 
 var name = flag.String("name", "World", "A name to say hello to")
 
-var provisionReq Structs.ProvisionReq
-
-var spanish bool
-
-var useJSON bool
+var meta bool
+var health bool
 
 var debug bool
 
@@ -34,17 +33,20 @@ var (
 	body = flag.String("body", "foobar", "Body of message")
 	reliable = flag.Bool("reliable", true, "Wait for the publisher confirmation before exiting")
 	getFlights bool
+	url = flag.String("url", "http://example.com/","host url")
 )
 
 
 func init() {
-	flag.BoolVar(&spanish, "meta", false, "Get meta endpoitnt.") //#3
-	flag.BoolVar(&spanish, "m", false, "Geta meta endpoint.")
-	flag.BoolVar(&getFlights, "f", false, "Use json language.")    //#3
-	flag.BoolVar(&getFlights, "flights", false, "Use TOML language.")    //#3
-	flag.BoolVar(&debug, "d", false, "Debug mode.") //#3
-	flag.BoolVar(&debug, "debug", false, "debug mode.")         //#3
-	flag.BoolVar(&shootme, "shoot", false, "shoot me.")         //#3
+	flag.BoolVar(&health, "health", false, "Get meta endpoitnt.")
+	flag.BoolVar(&meta, "meta", false, "Get meta endpoitnt.")
+	flag.BoolVar(&meta, "m", false, "Geta meta endpoint.")
+	flag.BoolVar(&health, "h", false, "Geta meta endpoint.")
+	flag.BoolVar(&getFlights, "f", false, "Use json language.")
+	flag.BoolVar(&getFlights, "flights", false, "Use TOML language.")
+	flag.BoolVar(&debug, "d", false, "Debug mode.")
+	flag.BoolVar(&debug, "debug", false, "debug mode.")
+	flag.BoolVar(&shootme, "shoot", false, "shoot me.")
 }
 
 func main() {
@@ -59,6 +61,18 @@ func main() {
 	fmt.Println("Hello")
 
 	getToml()
+
+	if resp, err := http.Get(url); err != nil {
+		failOnError(err, "couldn't get url")
+	} else {
+		robots, err := ioutil.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			log.Fatal(err)
+		}
+		fmt.Printf("%s", robots)
+	}
+
 
 
 
