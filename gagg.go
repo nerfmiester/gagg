@@ -4,7 +4,7 @@ import (
 
 	"fmt"
 	"github.com/nerfmiester/gagg/Config"
-	"github.com/nerfmiester/gagg/Structs"
+	//"github.com/nerfmiester/gagg/Structs"
 	"log"
 	"github.com/streadway/amqp"
 	"github.com/ivpusic/toml"
@@ -20,6 +20,7 @@ var name = flag.String("name", "World", "A name to say hello to")
 
 var meta bool
 var health bool
+var url string
 
 var debug bool
 
@@ -33,7 +34,6 @@ var (
 	body = flag.String("body", "foobar", "Body of message")
 	reliable = flag.Bool("reliable", true, "Wait for the publisher confirmation before exiting")
 	getFlights bool
-	url = flag.String("url", "http://example.com/","host url")
 )
 
 
@@ -47,6 +47,7 @@ func init() {
 	flag.BoolVar(&debug, "d", false, "Debug mode.")
 	flag.BoolVar(&debug, "debug", false, "debug mode.")
 	flag.BoolVar(&shootme, "shoot", false, "shoot me.")
+	flag.StringVar(&url,"url", "http://example.com/","host url")
 }
 
 func main() {
@@ -62,6 +63,8 @@ func main() {
 
 	getToml()
 
+
+
 	if resp, err := http.Get(url); err != nil {
 		failOnError(err, "couldn't get url")
 	} else {
@@ -74,13 +77,14 @@ func main() {
 	}
 
 
+    if tomlConfig.Agg.MessageSend {
 
 
-
-	if  err := publishMessage(*uri, *exchangeName, *exchangeType, *routingKey, *body, *reliable); err != nil {
-		failOnError(err, "Failed to send message")
-	} else {
-		fmt.Printf("Result: success\n")
+		if err := publishMessage(*uri, *exchangeName, *exchangeType, *routingKey, *body, *reliable); err != nil {
+			failOnError(err, "Failed to send message")
+		} else {
+			fmt.Printf("Result: success\n")
+		}
 	}
 }
 
