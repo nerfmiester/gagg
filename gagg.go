@@ -13,6 +13,8 @@ import (
 
 	"net/http"
 	"io/ioutil"
+	"time"
+	"strconv"
 )
 var tomlConfig Config.TomlConfig
 
@@ -35,9 +37,14 @@ var (
 	reliable = flag.Bool("reliable", true, "Wait for the publisher confirmation before exiting")
 	getFlights bool
 )
-
+var arrivalDate string
+var departureDate string
+var from string
+var to string
+var date time.Time
 
 func init() {
+	date = time.Now()
 	flag.BoolVar(&health, "health", false, "Get meta endpoitnt.")
 	flag.BoolVar(&meta, "meta", false, "Get meta endpoitnt.")
 	flag.BoolVar(&meta, "m", false, "Geta meta endpoint.")
@@ -48,6 +55,14 @@ func init() {
 	flag.BoolVar(&debug, "debug", false, "debug mode.")
 	flag.BoolVar(&shootme, "shoot", false, "shoot me.")
 	flag.StringVar(&url,"url", "http://example.com/","host url")
+	flag.StringVar(&departureDate,"dd", "01-01-15","Departure date")
+	flag.StringVar(&arrivalDate,"ad", "01-12-15","Arival date")
+	flag.StringVar(&from,"from", "http://example.com/","host url")
+	flag.StringVar(&to,"to", "http://example.com/","host url")
+	from = date.Format("2006-01-02")
+	fourteenDays := time.Hour * 24 * 14
+	to = date.Add(fourteenDays).Format("2006-01-02")
+
 }
 
 func main() {
@@ -55,6 +70,9 @@ func main() {
 	flag.Parse()
 	if (shootme) {
 		fmt.Println("Bang..........")
+		fmt.Printf("Date as string........%s-%d-%s\n", strconv.Itoa(date.Year())  ,date.Month(),strconv.Itoa(date.Day()))
+		fmt.Printf("From is .........%s", from)
+		fmt.Printf("To is .........%s", to)
 		os.Exit(0)
 
 	}
@@ -80,7 +98,7 @@ func main() {
     if tomlConfig.Agg.MessageSend {
 
 
-		if err := publishMessage(*uri, *exchangeName, *exchangeType, *routingKey, *body, *reliable); err != nil {
+		if err := go publishMessage(*uri, *exchangeName, *exchangeType, *routingKey, *body, *reliable); err != nil {
 			failOnError(err, "Failed to send message")
 		} else {
 			fmt.Printf("Result: success\n")
