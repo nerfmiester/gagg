@@ -15,6 +15,10 @@ import (
 	"io/ioutil"
 	"time"
 	"strconv"
+
+	"math/rand"
+"errors"
+	"net/url"
 )
 var tomlConfig Config.TomlConfig
 
@@ -22,7 +26,7 @@ var name = flag.String("name", "World", "A name to say hello to")
 
 var meta bool
 var health bool
-var url string
+var address string
 
 var debug bool
 
@@ -42,6 +46,12 @@ var departureDate string
 var from string
 var to string
 var date time.Time
+var port string
+var Url *url.URL
+
+var channel string
+
+var channelMap = make(map[string]string)
 
 func init() {
 	date = time.Now()
@@ -54,25 +64,83 @@ func init() {
 	flag.BoolVar(&debug, "d", false, "Debug mode.")
 	flag.BoolVar(&debug, "debug", false, "debug mode.")
 	flag.BoolVar(&shootme, "shoot", false, "shoot me.")
-	flag.StringVar(&url,"url", "http://example.com/","host url")
-	flag.StringVar(&departureDate,"dd", "01-01-15","Departure date")
-	flag.StringVar(&arrivalDate,"ad", "01-12-15","Arival date")
-	flag.StringVar(&from,"from", "http://example.com/","host url")
-	flag.StringVar(&to,"to", "http://example.com/","host url")
-	from = date.Format("2006-01-02")
-	fourteenDays := time.Hour * 24 * 14
-	to = date.Add(fourteenDays).Format("2006-01-02")
+	flag.StringVar(&address,"url", "http://public-api.agg.pre1.gb.tsm.internal","host url")
+	flag.StringVar(&port,"p", "8080","Host port to use, default is non prod envs.")
+	flag.StringVar(&port,"port", "8080","Host port to use, default is non prod envs.")
+	flag.StringVar(&departureDate,"dd", "2006-01-02","Departure date")
+	flag.StringVar(&arrivalDate,"ad", "2006-01-02","Arival date")
+	flag.StringVar(&from,"from", "MAN","From IATA code")
+	flag.StringVar(&to,"to", "CPH","To IATA code")
+	flag.StringVar(&channel, "c" , "f", "channel f=flights, c=carhire, h=hotels, l=holidays")
+	if (departureDate=="2006-01-02") {
+		departureDate = date.Format("2006-01-02")
+	}
+	rand.Seed(time.Now().UnixNano())
+
+	channelMap["f"]="flights"
+	channelMap["c"]="carhire"
+	channelMap["h"]="hotels"
+	channelMap["l"]="holidays"
+
+
 
 }
 
 func main() {
 
+
 	flag.Parse()
 	if (shootme) {
+
+
+
 		fmt.Println("Bang..........")
 		fmt.Printf("Date as string........%s-%d-%s\n", strconv.Itoa(date.Year())  ,date.Month(),strconv.Itoa(date.Day()))
-		fmt.Printf("From is .........%s", from)
-		fmt.Printf("To is .........%s", to)
+		fmt.Printf("From is .........%s\n", departureDate)
+		if (arrivalDate=="2006-01-02") {
+			fourteenDays := time.Hour * 24 * 14
+			parsedDate, err := time.Parse("2006-01-02", departureDate)
+			if err != nil {
+				fmt.Println(err)
+			}
+			arrivalDate = parsedDate.Add(fourteenDays).Format("2006-01-02")
+		}
+		fmt.Printf("To is .........%s\n", arrivalDate)
+
+		fmt.Printf("A random user is ......... %s\n", RandStringBytes(18))
+        err, channelString := channelLookup(channel)
+		if (err != nil) {
+			fmt.Printf("Your channel value  .........%s , is bullshit use f=flights, c=carhire, h=hotels, l=holidays\n", channel)
+			os.Exit(1)
+		}
+
+
+		Url, err = url.Parse(address + ":" + port + "/")
+		if err != nil {
+			panic("boom")
+		}
+		//curl http://localhost:8080/gb/flights/v1/search/MAN/2015-11-22/DUB/2015-11-29/2/0/0/e/0/false\?return=true\&userId=hgjfkdshgdfs\&source=TIV
+		Url.Path +=  "gb/" + channelString + "v1/search/" + from + "/" + departureDate + "/" + to +"/" + arrivalDate + "/2/0/0/e/0/false"
+		parameters := url.Values{}
+		parameters.Add("return", "true")
+		parameters.Add("userId", RandStringBytes(18))
+		parameters.Add("source", "TIV")
+		Url.RawQuery = parameters.Encode()
+
+		fmt.Printf("Encoded URL is %q\n", Url.String())
+
+		if resp, err := http.Get(Url.String()); err != nil {
+			failOnError(err, "couldn't get url")
+		} else {
+			robots, err := ioutil.ReadAll(resp.Body)
+			resp.Body.Close()
+			if err != nil {
+				log.Fatal(err)
+			}
+			fmt.Printf("%s", robots)
+		}
+
+
 		os.Exit(0)
 
 	}
@@ -83,7 +151,7 @@ func main() {
 
 
 
-	if resp, err := http.Get(url); err != nil {
+	if resp, err := http.Get(Url.String()); err != nil {
 		failOnError(err, "couldn't get url")
 	} else {
 		robots, err := ioutil.ReadAll(resp.Body)
@@ -98,7 +166,7 @@ func main() {
     if tomlConfig.Agg.MessageSend {
 
 
-		if err := go publishMessage(*uri, *exchangeName, *exchangeType, *routingKey, *body, *reliable); err != nil {
+		if err := publishMessage(*uri, *exchangeName, *exchangeType, *routingKey, *body, *reliable); err != nil {
 			failOnError(err, "Failed to send message")
 		} else {
 			fmt.Printf("Result: success\n")
@@ -218,4 +286,27 @@ func getToml() {
 
 		}
 	}
+}
+
+func RandStringBytes(n int) string {
+	const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"
+	b := make([]byte, n)
+	for i := range b {
+		b[i] = letters[rand.Intn(len(letters))]
+	}
+	return string(b)
+}
+
+func channelLookup(channel string) (err error, channelstring string) {
+
+
+	if _, ok := channelMap[channel] ; ok == true {
+		return nil, channelMap[channel]
+	} else {
+		return errors.New("No strings supplied"),""
+	}
+
+
+
+
 }

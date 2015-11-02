@@ -24,6 +24,7 @@ type agg struct {
 	Ports   []int
 	ConnMax int `toml:"connection_max"`
 	Enabled bool
+	MessageSend bool
 }
 
 type server struct {
